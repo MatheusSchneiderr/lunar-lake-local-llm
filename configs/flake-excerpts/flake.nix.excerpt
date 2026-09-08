@@ -1,0 +1,42 @@
+# Excerpt from flake.nix - only the parts relevant to wiring up the two
+# custom overlays (NPU driver compiler + runtime libs) and home-manager.
+# Everything else in a real flake.nix (other inputs, other modules) is
+# omitted - this is not a complete, evaluable flake on its own.
+
+{
+  inputs = {
+    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
+    home-manager = {
+      url = "github:nix-community/home-manager/master";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # ... your other flake inputs (nvf, stylix, etc.) go here too
+  };
+
+  outputs = { self, nixpkgs, home-manager, ... }: {
+    nixosConfigurations.YOUR_HOSTNAME = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ./hosts/YOUR_HOSTNAME/configuration.nix
+        home-manager.nixosModules.home-manager
+        {
+          # Order matters: the runtime-libs overlay references the
+          # compiler overlay's output (intel-npu-driver-compiler-package),
+          # so the compiler overlay must come first.
+          nixpkgs.overlays = [
+            (import ./overlays/intel-npu-compiler.nix)
+            (import ./overlays/npu-runtime-libs.nix)
+          ];
+        }
+        {
+          home-manager = {
+            useGlobalPkgs = true;
+            useUserPackages = true;
+            users.YOUR_USERNAME = import ./hosts/YOUR_HOSTNAME/home.nix;
+            backupFileExtension = "backup";
+          };
+        }
+      ];
+    };
+  };
+}

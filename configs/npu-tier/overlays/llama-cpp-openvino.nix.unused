@@ -1,0 +1,45 @@
+final: prev: {
+  llama-cpp-openvino = prev.llama-cpp.overrideAttrs (old: {
+    version = "0.4.0";
+    src = final.fetchFromGitHub {
+      owner = "ggml-org";
+      repo = "llama.cpp";
+      tag = "v0.4.0";
+      leaveDotGit = true;
+      postFetch = ''
+        git -C "$out" rev-parse --short HEAD > $out/COMMIT
+      '';
+      hash = "sha256-H6tUkJ2wYWgLQPyAbRXjgvvrP1lwWd05gDk+iy7ftTg=";
+    };
+    postPatch = (old.postPatch or "") + ''
+      # The NPU plugin rejects the EXECUTION_MODE_HINT property outright (it's a
+      # CPU/GPU-only hint in OpenVINO), but naive_compute() sets it unconditionally
+      # for every device, crashing every NPU decode. Skip it for NPU.
+      substituteInPlace ggml/src/ggml-openvino/utils.cpp \
+        --replace-fail \
+          'core.set_property(device, ov::hint::execution_mode(ov::hint::ExecutionMode::PERFORMANCE));' \
+          'if (device.find("NPU") == std::string::npos) core.set_property(device, ov::hint::execution_mode(ov::hint::ExecutionMode::PERFORMANCE));' \
+        --replace-fail \
+          'core.set_property(device, ov::hint::execution_mode(ov::hint::ExecutionMode::ACCURACY));' \
+          'if (device.find("NPU") == std::string::npos) core.set_property(device, ov::hint::execution_mode(ov::hint::ExecutionMode::ACCURACY));'
+
+      # NPU_COMPILER_DYNAMIC_QUANTIZATION is an optional NPU compiler speed/memory
+      # optimization that our NPU compiler doesn't recognize (NOT_FOUND) - likely
+      # because nixpkgs' intel-npu-driver is built without the driver-side compiler
+      # component (ENABLE_NPU_COMPILER_BUILD=OFF upstream default). Drop it; it's
+      # not required for correctness, just a perf knob.
+      substituteInPlace ggml/src/ggml-openvino/ggml-openvino-extra.cpp --replace-fail \
+        '{"NPU_COMPILER_DYNAMIC_QUANTIZATION", "YES"   },' \
+        ""
+    '';
+    cmakeFlags = (old.cmakeFlags or [ ]) ++ [ "-DGGML_OPENVINO=ON" ];
+    buildInputs = (old.buildInputs or [ ]) ++ [
+      final.openvino
+      final.onetbb
+      final.opencl-headers
+      final.opencl-clhpp
+      final.ocl-icd
+    ];
+    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.pkg-config ];
+  });
+}

@@ -1,0 +1,51 @@
+# The chat-template fix, as an actual diff
+
+Qwen3.6's own embedded chat template (`tokenizer.chat_template` inside the
+GGUF) hard-crashes the request with a 500 error the instant more than one
+system-role message appears anywhere but position 0 in the conversation.
+codecompanion.nvim's `@{agent}` + `<rules>...</rules>` file-context
+attachment sends exactly that shape (its own system prompt, then a second
+system-role message carrying rule/context files) - so this bites
+essentially every real tool-using session, not an edge case.
+
+Only the first system message (`messages[0]`) is handled specially at the
+top of the template and always renders fine. The per-message loop later in
+the template renders every OTHER message, and for a **second** system
+message it hits this branch:
+
+```diff
+     {%- if message.role == "system" %}
+         {%- if not loop.first %}
+-            {{- raise_exception('System message must be at the beginning.') }}
++            {{- '<|im_start|>system\n' + content + '<|im_end|>' + '\n' }}
+         {%- endif %}
+     {%- elif message.role == "user" %}
+```
+
+That's the entire fix - one line. A later system message now renders as an
+ordinary system turn instead of raising. `chat_template.patched.jinja` in
+this same directory is the full 153-line template with this change already
+applied; wire it in via llama-server's `--chat-template-file` flag (see
+`default.nix`).
+
+## How to extract your own model's template to patch
+
+If you're on a different GGUF, you'll need to extract *its* embedded
+template rather than reusing this one verbatim (the exact wording/logic
+varies by model/version). This project used Python's `gguf` package:
+
+```python
+from gguf import GGUFReader
+
+reader = GGUFReader("/path/to/your-model.gguf")
+for field in reader.fields.values():
+    if field.name == "tokenizer.chat_template":
+        template_text = bytes(field.parts[field.data[0]]).decode("utf-8")
+        with open("chat_template.jinja", "w") as f:
+            f.write(template_text)
+        break
+```
+
+Then look for the same "must be at the beginning" (or equivalent) guard on
+subsequent system messages, and apply the same fix: render instead of
+raise.
