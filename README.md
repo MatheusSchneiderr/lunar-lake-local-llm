@@ -138,10 +138,12 @@ repo is not accepting the premise that any of this is universal: treat
 every number as "measured on this machine, on this date," and re-verify
 before relying on it elsewhere.
 
-## I made this repo so you, user trying to deploy a local AI using intel
-## lunar lake architecture, dont have to spend a whole weekend debugging
-## with AI... Hopefully, this will be of good use for you or/and your AI
-## reading this. 
+## Motivation
+
+I made this repo so you, user trying to deploy a local AI using intel
+lunar lake architecture, dont have to spend a whole weekend debugging
+with AI (like I did)... Hopefully, this will be of good use for you or
+your AI reading this. 
 
 ## License
 
