@@ -72,6 +72,15 @@ detail and the reasoning behind every hardware-driven decision:
         ~30GB system RAM shared by CPU + this iGPU's driver heap
 ```
 
+> **Update (2026-09-08):** the GPU tier's flags above reflect the config as
+> originally tuned. A later investigation found Intel's Vulkan Flash
+> Attention implementation, not MoE expert-routing, was the real prefill
+> bottleneck, and changed the production flags to `-fa off` (dropping
+> `--spec-type draft-mtp` and KV-cache quantization, and reducing context
+> from 32768 to 24576) for a measured ~39% reduction in real request
+> wall-clock time. Full writeup:
+> [docs/10-fine-tuning-update-2026-09-08.md](docs/10-fine-tuning-update-2026-09-08.md).
+
 The two services declare `Unit.Conflicts` on each other at the systemd
 level — starting one force-stops the other — because concurrent operation
 was tested, not assumed unsafe: with both warm, free RAM bottomed out at
@@ -96,6 +105,7 @@ MoE architecturally cannot run on the NPU:
 | [docs/07-benchmarks-and-methodology.md](docs/07-benchmarks-and-methodology.md) | The data backbone: NPU/GPU model bake-offs, the ubatch sweep, speculative decoding numbers, and a KV-cache-quantization benchmarking mistake told as a cautionary tale |
 | [docs/08-troubleshooting-and-incidents.md](docs/08-troubleshooting-and-incidents.md) | Symptom → cause → fix lookup table, plus two full incident narratives (a systemd `Conflicts=` kill traced through a stray autocmd; two real OOM kills) |
 | [docs/09-gpu-guard-optional.md](docs/09-gpu-guard-optional.md) | The parked (not deployed) C++ stall/false-refusal retry proxy — architecture, why built, why parked |
+| [docs/10-fine-tuning-update-2026-09-08.md](docs/10-fine-tuning-update-2026-09-08.md) | A dated investigation update: root-causing a wall-clock regression, ruling out SYCL/vLLM/ggml-openvino/CPU-MoE-offload with fresh evidence, two self-caught citation corrections, the discovery that Flash Attention (not MoE routing) was the real Intel Vulkan prefill bottleneck, a rigorous interleaved benchmark, and an MXFP4 quantization result that didn't survive proper scrutiny |
 
 ## Real usage
 
