@@ -97,6 +97,20 @@ MoE architecturally cannot run on the NPU:
 | [docs/08-troubleshooting-and-incidents.md](docs/08-troubleshooting-and-incidents.md) | Symptom → cause → fix lookup table, plus two full incident narratives (a systemd `Conflicts=` kill traced through a stray autocmd; two real OOM kills) |
 | [docs/09-gpu-guard-optional.md](docs/09-gpu-guard-optional.md) | The parked (not deployed) C++ stall/false-refusal retry proxy — architecture, why built, why parked |
 
+## Real usage
+
+Screenshots of this setup actually being used for real work, not staged demos.
+
+**OpenCode's `Build` agent, running the GPU-tier model, writing an F# web
+server from scratch** — iterating with real shell commands (starting the
+server, `curl`-testing its own endpoints, `grep`-checking the HTML output)
+across a session that had used 0% of its 32768-token context window by this
+point:
+
+![OpenCode building an F# web server on the local GPU-tier model](screenshots/opencode-fsharp-webserver.png)
+
+More will be added here as they come in.
+
 ## Quick start
 
 Just want the files? Everything referenced above lives under
