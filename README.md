@@ -104,7 +104,7 @@ Screenshots of this setup actually being used for real work, not staged demos.
 **OpenCode's `Build` agent, running the GPU-tier model, writing an F# web
 server from scratch** — iterating with real shell commands (starting the
 server, `curl`-testing its own endpoints, `grep`-checking the HTML output)
-across a session that had used 0% of its 32768-token context window by this
+across a session that had used ~29000 of its 32768-token context window by this
 point:
 
 ![OpenCode building an F# web server on the local GPU-tier model](screenshots/opencode-fsharp-webserver.png)
@@ -137,6 +137,11 @@ parked/optional — it is not part of the default running architecture. This
 repo is not accepting the premise that any of this is universal: treat
 every number as "measured on this machine, on this date," and re-verify
 before relying on it elsewhere.
+
+## I made this repo so you, user trying to deploy a local AI using intel
+## lunar lake architecture, dont have to spend a whole weekend debugging
+## with AI... Hopefully, this will be of good use for you or/and your AI
+## reading this. 
 
 ## License
 
