@@ -81,6 +81,17 @@ detail and the reasoning behind every hardware-driven decision:
 > wall-clock time. Full writeup:
 > [docs/10-fine-tuning-update-2026-09-08.md](docs/10-fine-tuning-update-2026-09-08.md).
 
+> **Update (2026-09-09):** the GPU tier's model itself changed — `Qwen3.6-35B-A3B`
+> was replaced by `Cohere North-Mini-Code-1.0` (`cohere2moe`, 30B total/3B
+> active) after a broad candidate search, landing on `-c 65536` (2.67x the
+> prior 24576 ceiling, at negligible extra RAM cost), `--spec-type ngram-mod`
+> prompt-lookup speculative decoding, and `-ctk f16 -ctv q8_0` KV
+> quantization — beating the old model's ~18.7-19.1 tok/s baseline with
+> ~22-28 tok/s depending on task. The investigation also root-caused a real
+> CPU thermal-throttling confound that had been silently contaminating
+> benchmark comparisons on this laptop. Full writeup:
+> [docs/11-north-mini-migration-update-2026-09-09.md](docs/11-north-mini-migration-update-2026-09-09.md).
+
 The two services declare `Unit.Conflicts` on each other at the systemd
 level — starting one force-stops the other — because concurrent operation
 was tested, not assumed unsafe: with both warm, free RAM bottomed out at
@@ -106,6 +117,7 @@ MoE architecturally cannot run on the NPU:
 | [docs/08-troubleshooting-and-incidents.md](docs/08-troubleshooting-and-incidents.md) | Symptom → cause → fix lookup table, plus two full incident narratives (a systemd `Conflicts=` kill traced through a stray autocmd; two real OOM kills) |
 | [docs/09-gpu-guard-optional.md](docs/09-gpu-guard-optional.md) | The parked (not deployed) C++ stall/false-refusal retry proxy — architecture, why built, why parked |
 | [docs/10-fine-tuning-update-2026-09-08.md](docs/10-fine-tuning-update-2026-09-08.md) | A dated investigation update: root-causing a wall-clock regression, ruling out SYCL/vLLM/ggml-openvino/CPU-MoE-offload with fresh evidence, two self-caught citation corrections, the discovery that Flash Attention (not MoE routing) was the real Intel Vulkan prefill bottleneck, a rigorous interleaved benchmark, and an MXFP4 quantization result that didn't survive proper scrutiny |
+| [docs/11-north-mini-migration-update-2026-09-09.md](docs/11-north-mini-migration-update-2026-09-09.md) | A full model-swap investigation: nine ruled-out MoE/dense candidates each with a real disqualifying reason, a chat-template bug found by hand-parsing a GGUF's raw bytes, an Intel-Arc coopmat crash root-caused and fixed then a deeper architectural dead end found anyway, speculative-decoding's tokenizer-compatibility wall, a live CPU-thermal-throttling investigation that overturned an earlier "clear winner" conclusion, a principled (not benchmark-driven) pivot to `ngram-mod`, and the full production cutover to `Cohere North-Mini-Code-1.0` with 2.67x the context window |
 
 ## Real usage
 
