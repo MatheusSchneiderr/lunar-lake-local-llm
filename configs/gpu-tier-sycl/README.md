@@ -32,6 +32,18 @@ chapters:
   compiler (`icx`/`icpx`) — the open `adaptivecpp`/
   `generic-sycl-components` packages do not satisfy llama.cpp's SYCL
   cmake detection.
+
+  Recommended: build this overlay against a **second, dedicated nixpkgs
+  input** instead of the same `nixpkgs` everything else uses - pin it to
+  one commit, evaluate a second `pkgs` instance from it (`import
+  nixpkgs-llama-sycl { system = ...; config.allowUnfree = true; }`), and
+  pass that instance into the overlay (e.g. as `{ pinnedPkgs }: final:
+  prev: { llama-cpp-sycl = pinnedPkgs.llama-cpp.overrideAttrs (...); }`,
+  using `pinnedPkgs.*` everywhere the file currently reads `final.*`).
+  This is what keeps a routine `nix flake update` from silently moving
+  icx/icpx/oneAPI/level-zero out from under this overlay's manually-wired
+  flags - see [`../shared/versions.md`](../shared/versions.md) for the
+  exact pin this guide uses.
 - `default.nix` — the `gpu-server-hard` systemd user service, same
   `mkGpuService` pattern as `../gpu-tier/default.nix`. Replace
   `YOUR_USERNAME` with your own (see

@@ -112,6 +112,14 @@ detail and the reasoning behind every hardware-driven decision:
 > ruled out with real numbers. Full writeup:
 > [docs/13-qwen36-sycl-fine-tuning-2026-09-11.md](docs/13-qwen36-sycl-fine-tuning-2026-09-11.md).
 
+> **Update (2026-09-11):** shortly after the fine-tuning pass above,
+> Qwen3.6-35B-A3B got stuck in a real reasoning loop mid-task — restating
+> the same dead-end hypothesis in different words inside its own
+> `<think>` block, never converging. `loop-guard`, a small reverse proxy
+> that detects this by content (not a token/time budget) and interrupts
+> it, now fronts the GPU-tier server in production. Full writeup:
+> [docs/14-loop-guard-reasoning-loop-proxy.md](docs/14-loop-guard-reasoning-loop-proxy.md).
+
 The two services declare `Unit.Conflicts` on each other at the systemd
 level — starting one force-stops the other — because concurrent operation
 was tested, not assumed unsafe: with both warm, free RAM bottomed out at
@@ -140,6 +148,7 @@ MoE architecturally cannot run on the NPU:
 | [docs/11-north-mini-migration-update-2026-09-09.md](docs/11-north-mini-migration-update-2026-09-09.md) | A full model-swap investigation: nine ruled-out MoE/dense candidates each with a real disqualifying reason, a chat-template bug found by hand-parsing a GGUF's raw bytes, an Intel-Arc coopmat crash root-caused and fixed then a deeper architectural dead end found anyway, speculative-decoding's tokenizer-compatibility wall, a live CPU-thermal-throttling investigation that overturned an earlier "clear winner" conclusion, a principled (not benchmark-driven) pivot to `ngram-mod`, and the full production cutover to `Cohere North-Mini-Code-1.0` with 2.67x the context window |
 | [docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md](docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md) | North-Mini's real production failure the day after passing every benchmark, an honest issue-by-issue reconciliation with chapter 10's earlier "SYCL conclusively ruled out" verdict, a five-engine search (OpenVINO GenAI GPU, llama.cpp SYCL, vLLM-XPU, MLC-LLM, IPEX-LLM) against four MoE candidates, the real packaging fight behind a from-scratch SYCL overlay, and the final `Qwen3.6-35B-A3B` IQ1_M cutover |
 | [docs/13-qwen36-sycl-fine-tuning-2026-09-11.md](docs/13-qwen36-sycl-fine-tuning-2026-09-11.md) | The fine-tuning pass on top of the new SYCL/Qwen3.6 base: a fresh `-b`/`-ub` sweep, a `codecompanion` preset-toggle bug caught before deploy, a full runaway-reasoning root-cause investigation (a real production incident, a wrong temperature assumption, and a validated `presence_penalty` A/B), a near-OOM `-fa off` scare, and three more optimization attempts tested and honestly rejected (KV-cache quantization, `--cache-reuse`, `GGML_SYCL_F16`) |
+| [docs/14-loop-guard-reasoning-loop-proxy.md](docs/14-loop-guard-reasoning-loop-proxy.md) | A real reasoning-loop incident, why fixed token/time budgets can't fix it, the content-based (bag-of-words cosine similarity) detection mechanism, why it's written in Rust, and the production reverse-proxy wiring in front of the GPU tier |
 
 ## Real usage
 

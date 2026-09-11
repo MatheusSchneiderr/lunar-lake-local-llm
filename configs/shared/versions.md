@@ -32,6 +32,26 @@ alongside it, not in place of it.
 | `intel-oneapi-toolkit` (DPC++ compiler, `icx`/`icpx`) | 2026.0.1.27 |
 | GPU model | `Qwen3.6-35B-A3B`, GGUF **IQ1_M** quantization (`unsloth/Qwen3.6-35B-A3B-GGUF`), ~10.05GB |
 
+`llama-cpp-sycl` is built against a **second, dedicated `nixpkgs-llama-sycl`
+flake input**, pinned to the same commit as the base table's `nixpkgs` row
+above (`e8be7818e19ada32105a8af937a6a473b38167ca`), rather than the shared
+`nixpkgs` input everything else uses. A routine `nix flake update` only
+moves `nixpkgs` - it never touches `nixpkgs-llama-sycl` - so icx/icpx +
+oneAPI + level-zero can't drift out from under this overlay's manually-
+wired flags as a side effect of updating anything else. See
+[`../gpu-tier-sycl/README.md`](../gpu-tier-sycl/README.md) for the wiring.
+
+## loop-guard
+
+A reasoning-loop-detecting reverse proxy in front of `gpu-server-hard` -
+see [docs/14](../../docs/14-loop-guard-reasoning-loop-proxy.md) and
+[`../loop-guard/`](../loop-guard/). Source and full README:
+[github.com/MatheusSchneiderr/loop-guard](https://github.com/MatheusSchneiderr/loop-guard).
+
+| Component | Version / pin |
+|---|---|
+| `loop-guard` | commit `0a6cb8bba35b0c596ca3894bfbb8303378ffe546` |
+
 ## Hardware this was built and tested on
 
 - **CPU**: Intel Core Ultra 200V ("Lunar Lake")
