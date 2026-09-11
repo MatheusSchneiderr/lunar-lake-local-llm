@@ -30,13 +30,15 @@
         adapters = lib.mkLuaInline ''
           {
             http = {
-              -- Qwen3.6-35B-A3B (MoE) via llama.cpp's Vulkan backend on
-              -- the Arc iGPU. Deliberately NOT openvino_genai -
-              -- benchmarking showed OpenVINO's GPU-MoE inference path
-              -- never completes a thinking-mode answer and destabilizes
-              -- the GPU driver (see docs/03-gpu-tier-setup.md), while
-              -- llama.cpp on the same hardware and quantization gets it
-              -- right almost every time.
+              -- Qwen3.6-35B-A3B (MoE) via llama.cpp's SYCL backend on the
+              -- Arc iGPU (docs/12) - replaced the original Vulkan backend
+              -- entirely after North-Mini failed in production and a
+              -- confirmed unfixed Vulkan coopmat crash bug motivated an
+              -- alternative-engine search. Deliberately NOT openvino_genai -
+              -- OpenVINO's own converted build of this model runs ~2x
+              -- larger with no equivalently aggressive quantization
+              -- available, and MLC-LLM's only real Intel-GPU path is
+              -- Vulkan - the same backend this switch was meant to escape.
               gpu_hard = function()
                 return require("codecompanion.adapters").extend("openai_compatible", {
                   env = { url = "http://127.0.0.1:8901", api_key = "not-needed" },
@@ -48,55 +50,100 @@
                       -- reads schema.model.choices[model].meta.context_window)
                       -- - keep in sync with gpu-server-hard's -c value.
                       choices = {
-                        ["qwen3.6-35b-a3b-gpu"] = { meta = { context_window = 32768 } },
+                        ["qwen3.6-35b-a3b-gpu"] = { meta = { context_window = 131072 } },
                       },
                     },
-                    -- Toggleable per-chat in the settings block at the top
-                    -- of the buffer, same mechanism as the built-in
-                    -- gemini.lua adapter's thinkingLevel setting. Maps to
-                    -- the top-level request field llama-server reads for
-                    -- this: {"chat_template_kwargs": {"enable_thinking":
-                    -- bool}} (mapping="body.chat_template_kwargs" merges
-                    -- adapter.body straight into the request JSON - see
-                    -- codecompanion's http.lua Client.merge_body).
+                    -- Single toggle in the per-chat settings block at the
+                    -- top of the buffer - edit `thinking: true` there to
+                    -- swap the ENTIRE sampling preset, not just the
+                    -- enable_thinking flag. Mirrors the two full presets
+                    -- set up for opencode's two model entries
+                    -- (configs/opencode/opencode.json). Base numbers are
+                    -- Qwen's own documented mode-specific presets, with one
+                    -- deliberate deviation - see docs/13 for the full
+                    -- runaway-thinking investigation and the presence_penalty
+                    -- A/B behind these exact numbers:
+                    --   thinking=true:  temp=0.6, top_p=0.95, top_k=20,
+                    --                   min_p=0 (Qwen's "precise/coding"
+                    --                   thinking preset) PLUS
+                    --                   presence_penalty=1.0, added after a
+                    --                   dedicated research pass found
+                    --                   paraphrastic self-repetition (not
+                    --                   literal/n-gram repetition)
+                    --                   suppresses the </think> token's
+                    --                   probability. Qwen's own coding
+                    --                   preset sets presence_penalty=0 (no
+                    --                   anti-repetition at all), which the
+                    --                   same research flagged as a real gap
+                    --                   for this exact failure mode.
+                    --   thinking=false: temp=0.7, top_p=0.8, top_k=20,
+                    --                   min_p=0, presence_penalty=1.5
+                    --                   (Qwen's non-thinking preset -
+                    --                   presence_penalty is the actual
+                    --                   documented lever against literal-
+                    --                   repetition/greedy loops in this
+                    --                   mode, previously entirely unset)
+                    -- This single boolean can't declaratively map to 5
+                    -- different body fields at once (codecompanion's
+                    -- schema `mapping` is one field -> one body path), so
+                    -- it maps to a throwaway path (meta.thinking, never a
+                    -- real API field) purely to carry the boolean through
+                    -- to the form_parameters handler below, which reads
+                    -- it, deletes the throwaway field, and injects the
+                    -- whole matching preset - confirmed via codecompanion
+                    -- source (adapters/http/init.lua's
+                    -- map_schema_to_params -> http.lua's
+                    -- Client.merge_body) that form_parameters receives
+                    -- the schema-mapped params before the request is
+                    -- built, so this ordering is real, not assumed.
                     --
-                    -- Defaulted to false after a real benchmark: paired
-                    -- thinking-on/off runs across 5 verifiable-answer
-                    -- prompts (fixed seeds, 1536-token cap) found
-                    -- near-identical tok/s (~39 vs ~41) and a small
-                    -- draft-acceptance edge for thinking off (~87% vs
-                    -- ~83%), but thinking-on completely failed to
-                    -- converge on 2 of 5 prompt types (ran out the full
-                    -- token budget spiraling in reasoning, 0/2 seeds
-                    -- each), while thinking-off got 11/11 correct across
-                    -- the whole matrix. See
-                    -- docs/04-thinking-mode-and-preservation.md for the
-                    -- full table.
-                    --
-                    -- Rule of thumb for when to flip it on: if you'd be
-                    -- satisfied with the first reasonable answer, leave
-                    -- it off. For tasks involving a tool-calling chain
-                    -- (reading multiple files, then synthesizing a
-                    -- result) leave it off too - thinking-under-a-tool-
-                    -- chain was never actually benchmarked (only plain
-                    -- single-turn prompts were), and tool-calling chains
-                    -- are exactly where this model's degenerate-stall/
-                    -- false-tool-refusal failure mode shows up (see
-                    -- docs/08-troubleshooting-and-incidents.md). Instead,
-                    -- work in two steps: (1) leave it off, let it gather
-                    -- info and draft the result; (2) if the result looks
-                    -- shallow or misses a relationship, flip it on just
-                    -- for a follow-up message asking it to double-check/
-                    -- reason through what it already produced.
-                    enable_thinking = {
+                    -- Defaulted to false, per the same real production
+                    -- incident that drove the presence_penalty work above:
+                    -- a live task once generated 9800+ tokens with zero
+                    -- output, stuck entirely inside <think>. Root cause
+                    -- (docs/13) is paraphrastic self-repetition suppressing
+                    -- the </think> token's probability - a documented,
+                    -- model-family-wide Qwen3/3.6 issue, not specific to
+                    -- this config. Rule of thumb: if you'd be satisfied
+                    -- with the first reasonable answer, leave it off; flip
+                    -- it on for a follow-up message when a result looks
+                    -- shallow and you want it to double-check its own work.
+                    thinking = {
                       order = 1,
-                      mapping = "body.chat_template_kwargs",
+                      mapping = "meta",
                       type = "boolean",
                       default = false,
-                      desc = "Thinking mode - benchmarked worse convergence, no speed benefit. Toggle on when you specifically want visible deliberation.",
+                      desc = "Full Qwen3.6 sampling preset toggle: true = thinking mode (temp 0.6/top_p 0.95/presence_penalty 1.0), false = non-thinking mode (temp 0.7/top_p 0.8/presence_penalty 1.5, the fastest configuration found in this project).",
                     },
                   },
                   handlers = {
+                    -- Reads the `thinking` toggle's mapped value (see
+                    -- schema comment above), then replaces it with the
+                    -- full matching sampling preset instead of a single
+                    -- field - this is what makes one boolean apply Qwen's
+                    -- whole mode-specific recommendation at once.
+                    form_parameters = function(self, params, messages)
+                      local thinking = params.meta and params.meta.thinking
+                      params.meta = nil
+
+                      local preset
+                      if thinking then
+                        preset = { temperature = 0.6, top_p = 0.95, top_k = 20, min_p = 0, presence_penalty = 1.0 }
+                      else
+                        preset = { temperature = 0.7, top_p = 0.8, top_k = 20, min_p = 0, presence_penalty = 1.5 }
+                      end
+                      for k, v in pairs(preset) do
+                        params[k] = v
+                      end
+
+                      params.chat_template_kwargs = vim.tbl_deep_extend(
+                        "force",
+                        params.chat_template_kwargs or {},
+                        { enable_thinking = thinking or false }
+                      )
+
+                      return params
+                    end,
                     -- openai_compatible.lua uses the OLD flat handler
                     -- format (no handlers.response.* nesting), so the
                     -- reasoning-extraction hook is registered under its
@@ -156,7 +203,9 @@
       -- Start-and-wait-for-health helper: starts the systemd service, then
       -- polls /health before actually opening the chat, so you don't open
       -- an empty chat buffer against a server that's still cold-loading
-      -- the model (~10-20s for a ~21GB GGUF onto the iGPU via Vulkan).
+      -- the model (~10-15s for a ~10GB GGUF onto the iGPU via SYCL - the
+      -- SYCL backend reports /health as ready noticeably later than
+      -- Vulkan did, so don't assume a naive short sleep is enough).
       _G.GpuStartAndOpen = function(open_fn)
         vim.fn.jobstart({ "systemctl", "--user", "start", "gpu-server-hard" }, { detach = true })
 

@@ -10,20 +10,32 @@
       },
       "models": {
         "qwen3.6-35b-a3b-gpu": {
-          "name": "Qwen3.6 35B A3B (GPU, llama.cpp)",
-          "tool_call": true,
-          "reasoning": true,
-          "temperature": true,
-          "interleaved": "reasoning_content"
-        },
-        "qwen3.6-35b-a3b-gpu-thinking": {
-          "name": "Qwen3.6 35B A3B (GPU, thinking mode)",
+          "name": "Qwen3.6-35B-A3B IQ1_M (GPU, thinking on)",
           "tool_call": true,
           "reasoning": true,
           "temperature": true,
           "interleaved": "reasoning_content",
           "options": {
-            "chat_template_kwargs": { "enable_thinking": true }
+            "temperature": 0.6,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0,
+            "presence_penalty": 1.0
+          }
+        },
+        "qwen3.6-35b-a3b-gpu-no-think": {
+          "name": "Qwen3.6-35B-A3B IQ1_M (GPU, thinking off)",
+          "tool_call": true,
+          "reasoning": true,
+          "temperature": true,
+          "interleaved": "reasoning_content",
+          "options": {
+            "chat_template_kwargs": { "enable_thinking": false },
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0,
+            "presence_penalty": 1.5
           }
         }
       }
@@ -43,8 +55,14 @@
           "temperature": true
         }
       }
+    },
+    "no-titlegen": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Intentionally unreachable (kills title-gen GPU contention)",
+      "options": { "baseURL": "http://127.0.0.1:8999/v1", "apiKey": "not-needed" },
+      "models": { "x": { "name": "unreachable" } }
     }
   },
   "model": "local-gpu/qwen3.6-35b-a3b-gpu",
-  "small_model": "local-gpu/qwen3.6-35b-a3b-gpu"
+  "small_model": "no-titlegen/x"
 }

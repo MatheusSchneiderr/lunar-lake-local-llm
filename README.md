@@ -92,6 +92,26 @@ detail and the reasoning behind every hardware-driven decision:
 > benchmark comparisons on this laptop. Full writeup:
 > [docs/11-north-mini-migration-update-2026-09-09.md](docs/11-north-mini-migration-update-2026-09-09.md).
 
+> **Update (2026-09-10):** North-Mini-Code-1.0 failed in real production
+> use the next day despite passing every benchmark above, triggering a
+> five-engine/four-model search that also reopened — and this time
+> shipped — the SYCL backend chapter 10 had "conclusively ruled out" two
+> days earlier. Production now runs `Qwen3.6-35B-A3B` (IQ1_M GGUF) on a
+> from-scratch `llama.cpp`-SYCL build, escaping the Vulkan coopmat crash
+> entirely and comfortably serving `-c 131072`+ (192K tested clean).
+> Full writeup, including an honest reconciliation with chapter 10's
+> earlier SYCL verdict:
+> [docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md](docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md).
+
+> **Update (2026-09-11):** a full fine-tuning pass on top of the new
+> SYCL/Qwen3.6 base — batch sizing (`-b 4096 -ub 2048`, ~29% faster), a
+> real production incident that led to root-causing this model's
+> runaway-reasoning failure mode and a validated `presence_penalty`
+> fix, and four rejected optimization attempts (KV-cache quantization,
+> `-fa off`, `--cache-reuse`, `GGML_SYCL_F16`) each tested honestly and
+> ruled out with real numbers. Full writeup:
+> [docs/13-qwen36-sycl-fine-tuning-2026-09-11.md](docs/13-qwen36-sycl-fine-tuning-2026-09-11.md).
+
 The two services declare `Unit.Conflicts` on each other at the systemd
 level — starting one force-stops the other — because concurrent operation
 was tested, not assumed unsafe: with both warm, free RAM bottomed out at
@@ -118,6 +138,8 @@ MoE architecturally cannot run on the NPU:
 | [docs/09-gpu-guard-optional.md](docs/09-gpu-guard-optional.md) | The parked (not deployed) C++ stall/false-refusal retry proxy — architecture, why built, why parked |
 | [docs/10-fine-tuning-update-2026-09-08.md](docs/10-fine-tuning-update-2026-09-08.md) | A dated investigation update: root-causing a wall-clock regression, ruling out SYCL/vLLM/ggml-openvino/CPU-MoE-offload with fresh evidence, two self-caught citation corrections, the discovery that Flash Attention (not MoE routing) was the real Intel Vulkan prefill bottleneck, a rigorous interleaved benchmark, and an MXFP4 quantization result that didn't survive proper scrutiny |
 | [docs/11-north-mini-migration-update-2026-09-09.md](docs/11-north-mini-migration-update-2026-09-09.md) | A full model-swap investigation: nine ruled-out MoE/dense candidates each with a real disqualifying reason, a chat-template bug found by hand-parsing a GGUF's raw bytes, an Intel-Arc coopmat crash root-caused and fixed then a deeper architectural dead end found anyway, speculative-decoding's tokenizer-compatibility wall, a live CPU-thermal-throttling investigation that overturned an earlier "clear winner" conclusion, a principled (not benchmark-driven) pivot to `ngram-mod`, and the full production cutover to `Cohere North-Mini-Code-1.0` with 2.67x the context window |
+| [docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md](docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md) | North-Mini's real production failure the day after passing every benchmark, an honest issue-by-issue reconciliation with chapter 10's earlier "SYCL conclusively ruled out" verdict, a five-engine search (OpenVINO GenAI GPU, llama.cpp SYCL, vLLM-XPU, MLC-LLM, IPEX-LLM) against four MoE candidates, the real packaging fight behind a from-scratch SYCL overlay, and the final `Qwen3.6-35B-A3B` IQ1_M cutover |
+| [docs/13-qwen36-sycl-fine-tuning-2026-09-11.md](docs/13-qwen36-sycl-fine-tuning-2026-09-11.md) | The fine-tuning pass on top of the new SYCL/Qwen3.6 base: a fresh `-b`/`-ub` sweep, a `codecompanion` preset-toggle bug caught before deploy, a full runaway-reasoning root-cause investigation (a real production incident, a wrong temperature assumption, and a validated `presence_penalty` A/B), a near-OOM `-fa off` scare, and three more optimization attempts tested and honestly rejected (KV-cache quantization, `--cache-reuse`, `GGML_SYCL_F16`) |
 
 ## Real usage
 
@@ -137,8 +159,10 @@ More will be added here as they come in.
 
 Just want the files? Everything referenced above lives under
 [configs/](configs/), organized to mirror the docs (`configs/npu-tier/`,
-`configs/gpu-tier/`, `configs/nvim/`, `configs/opencode/`, `configs/shared/`,
-`configs/gpu-guard/`) — copy and adapt in place, replacing the
+`configs/gpu-tier-sycl/` — the current GPU tier, `configs/gpu-tier/` — the
+older Vulkan-era setup kept for historical reference, `configs/nvim/`,
+`configs/opencode/`, `configs/shared/`, `configs/gpu-guard/`) — copy and
+adapt in place, replacing the
 `YOUR_USERNAME`/`YOUR_HOSTNAME` placeholders (see
 `configs/shared/placeholders.md`) with your own. Want the reasoning first?
 Start at [docs/01-hardware-and-architecture.md](docs/01-hardware-and-architecture.md)

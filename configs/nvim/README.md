@@ -9,10 +9,14 @@ into your own setup:
   adapter definition. If you're not on nvf, the equivalent in a plain
   Lua `codecompanion.setup({...})` call is the same shape, just without
   the Nix string-wrapping.
-- `enable_thinking` schema field + `parse_message_meta` handler — the two
-  most reusable pieces if you're wiring up *any* `llama-server`-backed
-  adapter with a Qwen3-family thinking model, independent of the rest of
-  this repo's specifics.
+- `thinking` schema field + `form_parameters`/`parse_message_meta`
+  handlers — the most reusable pieces if you're wiring up *any*
+  `llama-server`-backed adapter with a Qwen3-family thinking model,
+  independent of the rest of this repo's specifics. `thinking` is a
+  single boolean that swaps an entire validated sampling preset (not just
+  `enable_thinking`) via `form_parameters` — see
+  `docs/13-qwen36-sycl-fine-tuning-2026-09-11.md` for why a single flag
+  wasn't enough on its own.
 - `display.chat.token_count` + `display.chat.show_settings` — the
   context-window-percentage display and the setting that makes
   `enable_thinking` (and any other schema field) actually visible/
@@ -27,5 +31,5 @@ into your own setup:
   recent enough to have the `openai_compatible` base adapter and the
   `display.chat.token_count`/`show_settings` options (check
   `lua/codecompanion/config.lua` in your installed version if unsure).
-- The GPU tier (`../gpu-tier/`) running and reachable at the URL in
-  `env.url`.
+- The GPU tier (`../gpu-tier-sycl/`, or `../gpu-tier/` for the older
+  Vulkan-era setup) running and reachable at the URL in `env.url`.
