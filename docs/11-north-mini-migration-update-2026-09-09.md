@@ -2,6 +2,15 @@
 
 Today's session started with a wall we kept running into — `gpu-server-hard`'s context ceiling — and ended with a smaller model in production carrying 2.67x the context window at real speed gains over the model it replaced. In between: nine ruled-out candidates, a chat-template bug found and fixed by hand-parsing a GGUF's raw bytes, a genuine Intel-Arc architectural dead end, a scientific-method detour into CPU thermal throttling that overturned one of our own earlier conclusions, and a final config change made on principle rather than a benchmark number. This is the full account.
 
+> **Update (2026-09-10):** North-Mini-Code-1.0, the model this chapter
+> lands on, failed in real production use the very next day, despite
+> passing every benchmark below. That triggered a wider engine+model
+> search that replaced both the model and the Vulkan backend entirely —
+> see [docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md](12-sycl-reversal-and-qwen36-migration-2026-09-10.md).
+> This chapter's methodology and reasoning are left intact below as a
+> real, valuable account of the process, even though its production
+> conclusion no longer holds.
+
 ---
 
 ## 1. Why we went looking for a smaller model

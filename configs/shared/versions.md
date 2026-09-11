@@ -16,6 +16,22 @@ assuming your setup is wrong.
 | GPU model | `Qwen3.6-35B-A3B`, GGUF Q4_K_M quantization (`bartowski/Qwen_Qwen3.6-35B-A3B-GGUF`) |
 | NPU model | `Qwen2.5-Coder-7B-Instruct`, OpenVINO IR (int4/NPU-optimized) |
 
+## SYCL era (2026-09-11 onward)
+
+The GPU tier moved off Vulkan entirely — see
+[`../gpu-tier-sycl/`](../gpu-tier-sycl/) and
+[docs/12](../../docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md)/
+[13](../../docs/13-qwen36-sycl-fine-tuning-2026-09-11.md). The table above
+is kept intact for anyone still on the Vulkan-era config in
+[`../gpu-tier/`](../gpu-tier/); this section pins the newer stack
+alongside it, not in place of it.
+
+| Component | Version / pin |
+|---|---|
+| `llama-cpp-sycl` (custom overlay, `pkgs.llama-cpp.overrideAttrs`) | 0.2.0, built with `GGML_SYCL=ON` |
+| `intel-oneapi-toolkit` (DPC++ compiler, `icx`/`icpx`) | 2026.0.1.27 |
+| GPU model | `Qwen3.6-35B-A3B`, GGUF **IQ1_M** quantization (`unsloth/Qwen3.6-35B-A3B-GGUF`), ~10.05GB |
+
 ## Hardware this was built and tested on
 
 - **CPU**: Intel Core Ultra 200V ("Lunar Lake")

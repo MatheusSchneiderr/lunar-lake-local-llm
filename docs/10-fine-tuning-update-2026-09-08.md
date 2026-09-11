@@ -153,6 +153,15 @@ numbers and dates so the status can be re-checked as upstream moves.
 
 ### SYCL backend — actively worse than Vulkan, not just unproven
 
+> **Update (2026-09-10):** this verdict was reconfirmed correct *for the
+> flag combination evaluated below* — Flash Attention paired with
+> speculative decoding and/or quantized KV cache. A later production
+> failure of a different model forced a full re-evaluation, and a config
+> that needs neither speculative decoding nor KV quantization ended up
+> shipping on this exact backend after all — sidestepping most, but not
+> all, of what's cited here. Full honest reconciliation, issue by issue:
+> [docs/12-sycl-reversal-and-qwen36-migration-2026-09-10.md](12-sycl-reversal-and-qwen36-migration-2026-09-10.md#2-reconciling-chapter-10s-sycl-verdict-honestly).
+
 llama.cpp's SYCL backend on Xe2 iGPUs has open, confirmed bugs hitting all
 three flags this project depends on simultaneously: Flash Attention,
 quantized KV cache, and MTP speculative decoding.
